@@ -1,0 +1,153 @@
+# LOTL Detector - Ancestry Allowlist
+#
+# Defines processes that, when active, allow their descendants
+# to bypass certain detection rules temporarily.
+#
+# SECURITY WARNING: This is a potential bypass vector!
+# - Use strict time windows (5 minutes max recommended)
+# - Limit allowed descendants explicitly
+# - Review this configuration regularly
+
+# Schema version
+version: 1
+
+# Ancestry rules
+rules:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Package Managers
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: apt-package-manager
+    name: APT Package Manager
+    description: Allow descendants of apt during package operations
+    ancestors:
+      - /usr/bin/apt
+      - /usr/bin/apt-get
+      - /usr/lib/apt/methods/*
+    window_seconds: 300  # 5 minutes
+    allowed_descendants:
+      - /usr/bin/dpkg
+      - /usr/bin/dpkg-deb
+      - /bin/sh
+      - /bin/bash
+      - /usr/bin/perl
+      - /usr/bin/python3
+      - /usr/bin/python3.*
+    blocked_descendants:
+      # Even during package install, don't allow these
+      - /usr/bin/nc
+      - /usr/bin/ncat
+      - /usr/bin/socat
+      - /usr/bin/curl
+      - /usr/bin/wget
+    enabled: true
+
+  - id: dpkg-package-manager
+    name: DPKG Package Manager
+    description: Allow descendants of dpkg during package operations
+    ancestors:
+      - /usr/bin/dpkg
+      - /usr/bin/dpkg-reconfigure
+    window_seconds: 300  # 5 minutes
+    allowed_descendants:
+      - /bin/sh
+      - /bin/bash
+      - /usr/bin/perl
+      - /usr/bin/ldconfig
+      - /usr/sbin/update-rc.d
+    enabled: true
+
+  - id: yum-package-manager
+    name: YUM Package Manager
+    description: Allow descendants of yum during package operations
+    ancestors:
+      - /usr/bin/yum
+      - /usr/bin/dnf
+    window_seconds: 300
+    allowed_descendants:
+      - /usr/bin/rpm
+      - /bin/sh
+      - /bin/bash
+      - /usr/bin/python3
+    enabled: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # System Services
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: systemd-init
+    name: Systemd Service Startup
+    description: Allow service startup during boot/restart
+    ancestors:
+      - /lib/systemd/systemd
+      - /usr/lib/systemd/systemd
+    window_seconds: 60  # Only 1 minute for startup
+    allowed_descendants:
+      - /bin/sh
+      - /bin/bash
+      - /usr/bin/python3
+    enabled: true
+
+  - id: cron-jobs
+    name: Cron Job Execution
+    description: Allow cron job execution
+    ancestors:
+      - /usr/sbin/cron
+      - /usr/sbin/crond
+    window_seconds: 300
+    allowed_descendants:
+      - /bin/sh
+      - /bin/bash
+    # Note: Still blocks network tools even from cron
+    blocked_descendants:
+      - /usr/bin/nc
+      - /usr/bin/ncat
+      - /usr/bin/socat
+    enabled: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Development Tools (Disable in production!)
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: make-build
+    name: Make Build Process
+    description: Allow build process descendants
+    ancestors:
+      - /usr/bin/make
+      - /usr/bin/gmake
+    window_seconds: 300
+    allowed_descendants:
+      - /usr/bin/gcc
+      - /usr/bin/g++
+      - /usr/bin/cc
+      - /usr/bin/ld
+      - /bin/sh
+      - /bin/bash
+    enabled: false  # Disabled by default for production
+
+  - id: git-operations
+    name: Git Operations
+    description: Allow git hook execution
+    ancestors:
+      - /usr/bin/git
+    window_seconds: 60
+    allowed_descendants:
+      - /bin/sh
+      - /bin/bash
+      - /usr/bin/gpg
+    enabled: false  # Disabled by default
+
+# Global settings
+settings:
+  # Default window if not specified in rule
+  default_window_seconds: 300
+  
+  # Maximum allowed window (prevents misconfiguration)
+  max_window_seconds: 600  # 10 minutes max
+  
+  # Propagate ancestry allowance to child processes
+  propagate_to_children: true
+  
+  # Log when ancestry bypass is used
+  log_bypasses: true
+

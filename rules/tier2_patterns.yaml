@@ -1,0 +1,280 @@
+# LOTL Detector - Tier 2 Detection Patterns
+#
+# These patterns are evaluated in userspace with regex support.
+# They generate alerts (not blocks) unless user blocking is enabled.
+#
+# Pattern matching is done with 50ms timeout to prevent ReDoS.
+
+# Schema version
+version: 1
+
+# Detection rules
+rules:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Reverse Shell Detection
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: bash-reverse-shell
+    name: Bash Reverse Shell
+    description: Detects bash reverse shell patterns
+    mitre: T1059.004
+    severity: critical
+    binaries:
+      - /bin/bash
+      - /usr/bin/bash
+    args_pattern: '(-i\s+)?>&?\s*/dev/tcp/|/dev/udp/'
+    enabled: true
+
+  - id: python-reverse-shell
+    name: Python Reverse Shell
+    description: Detects Python socket-based reverse shells
+    mitre: T1059.006
+    severity: critical
+    binaries:
+      - /usr/bin/python
+      - /usr/bin/python3
+      - /usr/bin/python3.12
+      - /usr/bin/python3.11
+    args_pattern: 'socket\..*connect.*\(|pty\.spawn|subprocess.*shell=True'
+    enabled: true
+
+  - id: perl-reverse-shell
+    name: Perl Reverse Shell
+    description: Detects Perl reverse shell patterns
+    mitre: T1059
+    severity: critical
+    binaries:
+      - /usr/bin/perl
+    args_pattern: 'socket\s*\(|IO::Socket|exec.*sh'
+    enabled: true
+
+  - id: curl-download-exec
+    name: Curl Download and Execute
+    description: Detects curl piped to shell
+    mitre: T1059.004
+    severity: high
+    binaries:
+      - /usr/bin/curl
+    args_pattern: '.*\|\s*(ba)?sh|.*-o\s+/tmp/|.*--output\s+/tmp/'
+    enabled: true
+
+  - id: wget-download-exec
+    name: Wget Download and Execute
+    description: Detects wget to suspicious locations
+    mitre: T1059.004
+    severity: high
+    binaries:
+      - /usr/bin/wget
+    args_pattern: '-O\s+/tmp/|--output-document.*(/tmp/|/dev/shm/)'
+    enabled: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Encoded Command Detection
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: base64-decode-exec
+    name: Base64 Decode Execution
+    description: Detects base64 decoding likely for execution
+    mitre: T1027
+    severity: high
+    binaries:
+      - /usr/bin/base64
+    args_pattern: '-d|--decode'
+    enabled: true
+
+  - id: bash-base64
+    name: Bash Base64 Evaluation
+    description: Detects bash evaluating base64-encoded content
+    mitre: T1027
+    severity: critical
+    binaries:
+      - /bin/bash
+      - /usr/bin/bash
+    args_pattern: 'base64\s+(-d|--decode)|eval.*\$\(.*base64'
+    enabled: true
+
+  - id: python-base64-exec
+    name: Python Base64 Execution
+    description: Detects Python executing base64-encoded content
+    mitre: T1027
+    severity: critical
+    binaries:
+      - /usr/bin/python
+      - /usr/bin/python3
+      - /usr/bin/python3.12
+      - /usr/bin/python3.11
+    args_pattern: 'import base64|b64decode.*exec'
+    enabled: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Data Exfiltration Detection
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: curl-post-data
+    name: Curl POST with Data
+    description: Detects curl posting data (potential exfil)
+    mitre: T1041
+    severity: medium
+    binaries:
+      - /usr/bin/curl
+    args_pattern: '--data|--data-binary|-d\s+@|-F\s+.*=@'
+    enabled: true
+
+  - id: dns-exfil
+    name: DNS Exfiltration
+    description: Detects potential DNS-based exfiltration
+    mitre: T1048.003
+    severity: high
+    binaries:
+      - /usr/bin/dig
+      - /usr/bin/host
+      - /usr/bin/nslookup
+    args_pattern: 'TXT\s+[a-zA-Z0-9]{20,}\.|\+short.*TXT'
+    enabled: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Privilege Escalation Detection
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: chmod-suid
+    name: SUID Permission Change
+    description: Detects setting SUID bit
+    mitre: T1548.001
+    severity: critical
+    binaries:
+      - /bin/chmod
+      - /usr/bin/chmod
+    args_pattern: '\+s|u\+s|4[0-7]{3}'
+    enabled: true
+
+  - id: chown-root
+    name: Ownership Change to Root
+    description: Detects changing ownership to root
+    mitre: T1222.002
+    severity: high
+    binaries:
+      - /bin/chown
+      - /usr/bin/chown
+    args_pattern: 'root:|:root|^0:'
+    enabled: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Persistence Detection
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: crontab-edit
+    name: Crontab Modification
+    description: Detects crontab editing (potential persistence)
+    mitre: T1053.003
+    severity: medium
+    binaries:
+      - /usr/bin/crontab
+    args_pattern: '-e|-l|-r'
+    enabled: true
+
+  - id: systemctl-enable
+    name: Systemd Service Enable
+    description: Detects enabling systemd services
+    mitre: T1543.002
+    severity: medium
+    binaries:
+      - /bin/systemctl
+      - /usr/bin/systemctl
+    args_pattern: 'enable|daemon-reload'
+    enabled: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Credential Access Detection
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: passwd-access
+    name: Password File Access
+    description: Detects reading password files
+    mitre: T1003.008
+    severity: high
+    binaries:
+      - /bin/cat
+      - /usr/bin/cat
+      - /usr/bin/head
+      - /usr/bin/tail
+      - /usr/bin/less
+      - /usr/bin/more
+    args_pattern: '/etc/passwd|/etc/shadow|/etc/sudoers'
+    enabled: true
+
+  - id: ssh-key-access
+    name: SSH Key Access
+    description: Detects reading SSH keys
+    mitre: T1552.004
+    severity: high
+    binaries:
+      - /bin/cat
+      - /usr/bin/cat
+    args_pattern: '\.ssh/(id_rsa|id_ed25519|id_ecdsa|authorized_keys)'
+    enabled: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Defense Evasion Detection
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: history-clear
+    name: History Clearing
+    description: Detects attempts to clear command history
+    mitre: T1070.003
+    severity: high
+    binaries:
+      - /bin/bash
+      - /usr/bin/bash
+    args_pattern: 'history\s+-c|HISTFILE=/dev/null|unset\s+HISTFILE'
+    enabled: true
+
+  - id: log-tampering
+    name: Log File Tampering
+    description: Detects potential log tampering
+    mitre: T1070.002
+    severity: critical
+    binaries:
+      - /bin/rm
+      - /usr/bin/rm
+      - /usr/bin/truncate
+      - /usr/bin/shred
+    args_pattern: '/var/log/|\.log$|/var/audit/'
+    enabled: true
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Busybox Abuse Detection
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  - id: busybox-nc
+    name: Busybox Netcat
+    description: Detects busybox netcat usage
+    mitre: T1059.004
+    severity: critical
+    binaries:
+      - /bin/busybox
+      - /usr/bin/busybox
+    args_pattern: '^nc\s|netcat'
+    busybox_applets:
+      - nc
+      - netcat
+    enabled: true
+
+  - id: busybox-wget
+    name: Busybox Wget
+    description: Detects busybox wget usage
+    mitre: T1059.004
+    severity: medium
+    binaries:
+      - /bin/busybox
+      - /usr/bin/busybox
+    args_pattern: '^wget\s'
+    busybox_applets:
+      - wget
+    enabled: true
+
+# Global settings for pattern matching
+settings:
+  regex_timeout_ms: 50
+  case_sensitive: false
+  max_args_to_check: 10
+

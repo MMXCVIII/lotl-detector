@@ -1,0 +1,76 @@
+# LOTL Detector - Tier 1 Blocklist
+# 
+# These binaries are blocked at the kernel level (instant blocking).
+# Blocking is based on both path AND inode to prevent copy-based evasion.
+#
+# WARNING: Adding binaries here will break legitimate use!
+# Only add binaries that have NO legitimate use on this system.
+
+# Schema version
+version: 1
+
+# Blocked binaries
+# Each entry blocks execution regardless of arguments
+blocked_paths:
+  # Network tools commonly used for reverse shells
+  - path: /usr/bin/nc
+    reason: netcat - reverse shell risk
+    mitre: T1059.004
+
+  - path: /bin/nc
+    reason: netcat - reverse shell risk  
+    mitre: T1059.004
+
+  - path: /usr/bin/ncat
+    reason: ncat (nmap netcat) - reverse shell risk
+    mitre: T1059.004
+
+  - path: /usr/bin/nc.traditional
+    reason: netcat traditional - reverse shell risk
+    mitre: T1059.004
+
+  - path: /usr/bin/nc.openbsd
+    reason: netcat openbsd - reverse shell risk
+    mitre: T1059.004
+
+  - path: /usr/bin/socat
+    reason: socat - advanced tunnel/reverse shell
+    mitre: T1059.004
+
+  - path: /usr/bin/nmap
+    reason: nmap - network scanning
+    mitre: T1046
+
+  # Crypto miners (if present)
+  - path: /usr/bin/xmrig
+    reason: cryptocurrency miner
+    mitre: T1496
+
+  # Known implant names (examples)
+  # Add actual implant names observed in your environment
+  # - path: /tmp/.hidden/implant
+  #   reason: known malware
+  #   mitre: T1059
+
+# Blocked by binary name (matches anywhere)
+# These are blocked if the binary NAME matches, regardless of path
+blocked_names:
+  - name: nc.traditional
+    reason: netcat variant
+    mitre: T1059.004
+
+  - name: ncat
+    reason: ncat reverse shell risk
+    mitre: T1059.004
+
+# Additional inodes to block
+# Populated at runtime from blocked_paths
+# Can also specify manually for known malicious binaries
+blocked_inodes: []
+
+# Users that are blocked from executing anything
+# Use sparingly - blocks ALL execution for these UIDs
+blocked_users: []
+#  - uid: 65534
+#    reason: nobody should not execute binaries
+
